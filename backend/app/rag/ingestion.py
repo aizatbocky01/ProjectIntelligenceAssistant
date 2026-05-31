@@ -1,4 +1,4 @@
-
+"""
 Document ingestion pipeline.
 Handles loading PDFs and CSVs, chunking text, and upserting into the vector store.
 """
@@ -10,6 +10,7 @@ import fitz  # PyMuPDF
 import pandas as pd
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
+import openpyxl
 
 logger = logging.getLogger(__name__)
 
@@ -57,5 +58,61 @@ def load_csv(file_path: str) -> Tuple[pd.DataFrame, List[Document]]:
         documents = []
         columns = df.columns.tolist()
         for idx, row in df.iterrows():
-            row_text = "; ".join([f"{c
-<truncated 1818 bytes>
+            row_text = "; ".join([f"{c}: {row[c]}" for c in columns])
+            documents.append(
+                Document(
+                    page_content=row_text,
+                    metadata={
+                        "source": os.path.basename(file_path),
+                        "row": idx,
+                        "file_type": "csv",
+                    },
+                )
+            )
+        return df, documents
+    except Exception as e:
+        logger.error(f"Error loading CSV {file_path}: {e}")
+        raise
+
+def load_xlsx(file_path: str) -> Tuple[pd.DataFrame, List[Document]]:
+    """
+    Load an XLSX file into a Pandas DataFrame AND create LangChain Documents
+    from it for the vector store.
+    """
+    try:
+        df = pd.read_excel(file_path, engine="openpyxl")
+        logger.info(f"Loaded Excel with {len(df)} rows from {file_path}")
+
+        documents = []
+        columns = df.columns.tolist()
+        for idx, row in df.iterrows():
+            row_text = "; ".join([f"{c}: {row[c]}" for c in columns])
+            documents.append(
+                Document(
+                    page_content=row_text,
+                    metadata={
+                        "source": os.path.basename(file_path),
+                        "row": idx,
+                        "file_type": "xlsx",
+                    },
+                )
+            )
+        return df, documents
+    except Exception as e:
+        logger.error(f"Error loading Excel {file_path}: {e}")
+        raise
+
+
+def process_and_chunk(documents: List[Document], chunk_size: int = 1000, chunk_overlap: int = 200) -> List[Document]:
+    """
+    Split documents into smaller chunks for optimal RAG performance.
+    """
+    logger.info(f"Chunking {len(documents)} documents...")
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    chunks = text_splitter.split_documents(documents)
+    logger.info(f"Created {len(chunks)} chunks.")
+    return chunks

@@ -1,4 +1,4 @@
-
+"""
 Main FastAPI application.
 """
 import logging

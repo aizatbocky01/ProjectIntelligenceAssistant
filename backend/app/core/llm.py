@@ -1,4 +1,4 @@
-
+"""
 LLM and Embeddings setup using Google Gemini.
 """
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
